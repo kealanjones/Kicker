@@ -150,7 +150,8 @@
 }
 
 .toast-exit {
-  @apply animate-fade-out;
+  @apply animate-fade-in;
+  animation-direction: reverse;
 }
 
 /* Success checkmark SVG animation */

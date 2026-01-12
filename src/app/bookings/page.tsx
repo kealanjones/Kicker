@@ -37,6 +37,7 @@ const mockBookings = {
       paidCount: 8,
       totalPlayers: 10,
       price: 5500,
+      creditAmount: 0,
     },
   ],
   past: [
@@ -50,7 +51,10 @@ const mockBookings = {
       time: "19:00",
       status: "completed",
       isSplitPay: false,
+      paidCount: 10,
+      totalPlayers: 10,
       price: 4800,
+      creditAmount: 0,
     },
     {
       id: "3",
@@ -65,6 +69,7 @@ const mockBookings = {
       paidCount: 10,
       totalPlayers: 10,
       price: 5000,
+      creditAmount: 0,
     },
   ],
   cancelled: [
@@ -77,6 +82,10 @@ const mockBookings = {
       date: "2024-01-04",
       time: "20:00",
       status: "cancelled",
+      isSplitPay: false,
+      paidCount: 0,
+      totalPlayers: 10,
+      price: 5500,
       creditAmount: 5500,
     },
   ],

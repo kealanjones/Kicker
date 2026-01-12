@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -71,7 +65,6 @@ export default function RootLayout({
     <html lang="en-GB" suppressHydrationWarning>
       <body
         className={cn(
-          inter.variable,
           "min-h-screen bg-background font-sans antialiased"
         )}
       >
