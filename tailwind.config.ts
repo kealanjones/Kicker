@@ -65,6 +65,9 @@ const config = {
         warning: "hsl(var(--warning))",
         info: "hsl(var(--info))",
       },
+      spacing: {
+        '13': '3.25rem',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

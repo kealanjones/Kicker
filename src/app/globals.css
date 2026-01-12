@@ -4,44 +4,47 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dark athletic theme - default */
+    --background: 220 20% 6%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 20% 9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 20% 9%;
+    --popover-foreground: 0 0% 98%;
 
-    /* Kicker brand green - vibrant pitch green */
-    --primary: 145 63% 42%;
-    --primary-foreground: 0 0% 100%;
+    /* Kicker brand - electric green */
+    --primary: 150 100% 45%;
+    --primary-foreground: 220 20% 6%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 10% 55%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 150 100% 45%;
+    --accent-foreground: 220 20% 6%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 145 63% 42%;
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 150 100% 45%;
 
     --radius: 0.75rem;
 
-    /* Kicker specific colours */
-    --kicker-green: 145 63% 42%;
-    --kicker-green-light: 145 63% 52%;
-    --kicker-green-dark: 145 63% 32%;
-    --kicker-pitch: 120 40% 25%;
+    /* Athletic brand palette */
+    --kicker-green: 150 100% 45%;
+    --kicker-green-light: 150 100% 55%;
+    --kicker-green-dark: 150 100% 35%;
+    --kicker-pitch: 140 50% 20%;
+    --kicker-glow: 150 100% 50%;
 
-    --success: 142 76% 36%;
+    /* Accent colors */
+    --success: 150 84% 40%;
     --warning: 38 92% 50%;
     --info: 199 89% 48%;
 
@@ -51,42 +54,17 @@
     --duration-slow: 300ms;
     --duration-slower: 500ms;
   }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 145 63% 49%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 145 63% 49%;
-  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    @apply bg-background;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -115,6 +93,43 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Glow effects */
+  .glow-green {
+    box-shadow: 0 0 20px hsl(var(--kicker-green) / 0.3),
+                0 0 40px hsl(var(--kicker-green) / 0.1);
+  }
+
+  .glow-green-sm {
+    box-shadow: 0 0 10px hsl(var(--kicker-green) / 0.25);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px hsl(var(--kicker-green) / 0.5);
+  }
+
+  /* Glass morphism */
+  .glass {
+    background: rgba(17, 24, 32, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-card {
+    background: linear-gradient(145deg,
+      hsl(220 20% 11% / 0.9) 0%,
+      hsl(220 20% 8% / 0.9) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(220 15% 20% / 0.5);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(150 100% 50%) 0%, hsl(160 100% 60%) 100%);
+  }
 }
 
 /* Skeleton shimmer animation */
@@ -124,7 +139,7 @@
 
 /* Focus visible for keyboard navigation */
 .focus-ring {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
 /* Reduced motion */
@@ -164,10 +179,27 @@
   animation: checkmark 0.4s ease-out forwards;
 }
 
+@keyframes checkmark {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Confetti particle */
 .confetti-particle {
   @apply absolute pointer-events-none;
   animation: confetti 1s ease-out forwards;
+}
+
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(720deg);
+    opacity: 0;
+  }
 }
 
 /* Hold timer pulse */
@@ -181,22 +213,95 @@
 
 /* Slot button states */
 .slot-available {
-  @apply border-green-500 hover:bg-green-50 hover:border-green-600;
+  @apply border-primary/50 hover:border-primary hover:bg-primary/10;
 }
 
 .slot-selected {
-  @apply bg-green-600 text-white border-green-600;
+  @apply bg-primary text-primary-foreground border-primary glow-green-sm;
 }
 
 .slot-held {
-  @apply border-amber-500 bg-amber-50;
+  @apply border-warning/50 bg-warning/10;
 }
 
 .slot-booked {
-  @apply bg-gray-100 text-gray-400 cursor-not-allowed;
+  @apply bg-muted/50 text-muted-foreground cursor-not-allowed opacity-50;
 }
 
 /* Mobile-first container */
 .container-mobile {
   @apply px-4 mx-auto max-w-md sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-6xl;
+}
+
+/* Hero gradient background */
+.hero-gradient {
+  background: linear-gradient(180deg, hsl(220 20% 8%) 0%, hsl(150 30% 8%) 50%, hsl(220 20% 6%) 100%);
+  position: relative;
+}
+
+.hero-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% -20%, hsl(150 100% 45% / 0.15), transparent);
+  pointer-events: none;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-300;
+}
+
+.card-hover:hover {
+  @apply -translate-y-1;
+  box-shadow: 0 20px 40px -20px hsl(150 100% 45% / 0.15),
+              0 0 0 1px hsl(150 100% 45% / 0.1);
+}
+
+/* Athletic button styles */
+.btn-athletic {
+  @apply relative overflow-hidden;
+  background: linear-gradient(135deg, hsl(150 100% 45%) 0%, hsl(160 100% 40%) 100%);
+}
+
+.btn-athletic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, hsl(0 0% 100% / 0.1) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+}
+
+.btn-athletic:hover::before {
+  transform: translateX(100%);
+}
+
+/* Stats number styling */
+.stat-number {
+  @apply font-bold text-4xl md:text-5xl gradient-text;
+}
+
+/* Table row highlights */
+.table-row-highlight {
+  @apply transition-colors hover:bg-primary/5;
+}
+
+.table-row-top {
+  @apply bg-primary/10;
+}
+
+.table-row-bottom {
+  @apply bg-destructive/10;
+}
+
+/* Safe area padding for mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Selection styling */
+::selection {
+  background: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
 }
