@@ -1,0 +1,1370 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerified   DateTime?
+  phone           String?   @unique
+  phoneVerified   DateTime?
+  passwordHash    String?
+  name            String
+  avatar          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastLoginAt     DateTime?
+
+  // GDPR
+  marketingConsent Boolean  @default(false)
+  dataExportedAt   DateTime?
+  deletedAt        DateTime?
+
+  // Relations
+  profile          Profile?
+  roles            UserRole[]
+  accounts         Account[]
+  sessions         Session[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+
+  // Booking relations
+  bookings             Booking[]
+  bookingParticipants  BookingParticipant[]
+  creditWallet         CreditWallet?
+  waitlistEntries      WaitlistEntry[]
+
+  // Team relations
+  teamMemberships      TeamMember[]
+  teamInvitesSent      TeamInvite[]        @relation("InviteSender")
+  teamInvitesReceived  TeamInvite[]        @relation("InviteRecipient")
+  availabilityResponses AvailabilityResponse[]
+
+  // League relations
+  leaguesOrganised     League[]            @relation("LeagueOrganiser")
+  resultsSubmitted     Result[]            @relation("ResultSubmitter")
+  disputesRaised       Dispute[]           @relation("DisputeRaiser")
+  disciplineEvents     DisciplineEvent[]
+
+  // Venue relations
+  venuesManaged        VenueStaff[]
+  issuesReported       Issue[]             @relation("IssueReporter")
+
+  // Player finder
+  playerFinderPosts    PlayerFinderPost[]
+  playerFinderAcceptances PlayerFinderAcceptance[]
+
+  @@index([email])
+  @@index([deletedAt])
+}
+
+model Profile {
+  id              String     @id @default(cuid())
+  userId          String     @unique
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  skillLevel      SkillLevel @default(INTERMEDIATE)
+  preferredPosition String?
+  bio             String?
+
+  postcode        String?
+  latitude        Float?
+  longitude       Float?
+
+  gamesPlayed     Int        @default(0)
+  goalsScored     Int        @default(0)
+  assists         Int        @default(0)
+
+  bookingStreak   Int        @default(0)
+  totalBookings   Int        @default(0)
+  memberSince     DateTime   @default(now())
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  SEMI_PRO
+}
+
+model UserRole {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role
+  scopeType ScopeType?
+  scopeId   String?
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, role, scopeType, scopeId])
+}
+
+enum Role {
+  PLAYER
+  TEAM_CAPTAIN
+  LEAGUE_ORGANISER
+  VENUE_OPERATOR
+  VENUE_STAFF
+  PLATFORM_ADMIN
+}
+
+enum ScopeType {
+  VENUE
+  LEAGUE
+  TEAM
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  entityType  String
+  entityId    String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================
+// VENUE DOMAIN
+// ============================================
+
+model Venue {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  description     String?
+
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  county          String?
+  postcode        String
+  country         String   @default("GB")
+  latitude        Float
+  longitude       Float
+
+  phone           String?
+  email           String?
+  website         String?
+
+  photos          String[]
+  logo            String?
+
+  amenities       String[]
+  openingHours    Json?
+
+  isActive        Boolean  @default(true)
+  stripeAccountId String?
+
+  cancellationPolicy Json?
+  creditPolicy       Json?
+  depositPolicy      Json?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pitches         Pitch[]
+  pricingRules    PricingRule[]
+  closures        Closure[]
+  staff           VenueStaff[]
+  bookings        Booking[]
+  issues          Issue[]
+  leagues         League[]
+
+  @@index([slug])
+  @@index([postcode])
+  @@index([latitude, longitude])
+}
+
+model Pitch {
+  id               String    @id @default(cuid())
+  venueId          String
+  venue            Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  name             String
+  description      String?
+
+  size             PitchSize
+  surface          Surface
+  isIndoor         Boolean   @default(false)
+  hasFloodlights   Boolean   @default(true)
+
+  minPlayers       Int       @default(10)
+  maxPlayers       Int       @default(14)
+  spectatorCapacity Int?
+
+  baseHourlyRate   Int
+  slotDurationMins Int       @default(60)
+
+  isActive         Boolean   @default(true)
+  maintenanceUntil DateTime?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  availabilitySlots AvailabilitySlot[]
+  bookings         Booking[]
+  closures         Closure[]
+  issues           Issue[]
+
+  @@index([venueId, isActive])
+}
+
+enum PitchSize {
+  FIVE_A_SIDE
+  SIX_A_SIDE
+  SEVEN_A_SIDE
+  ELEVEN_A_SIDE
+}
+
+enum Surface {
+  GRASS
+  ASTRO_3G
+  ASTRO_4G
+  INDOOR
+  HYBRID
+}
+
+model AvailabilitySlot {
+  id        String     @id @default(cuid())
+  pitchId   String
+  pitch     Pitch      @relation(fields: [pitchId], references: [id], onDelete: Cascade)
+
+  date      DateTime   @db.Date
+  startTime DateTime   @db.Time(0)
+  endTime   DateTime   @db.Time(0)
+
+  price     Int
+
+  status    SlotStatus @default(AVAILABLE)
+
+  booking   Booking?
+  hold      BookingHold?
+  waitlistEntries WaitlistEntry[]
+
+  @@unique([pitchId, date, startTime])
+  @@index([date, status])
+  @@index([pitchId, date])
+}
+
+enum SlotStatus {
+  AVAILABLE
+  HELD
+  BOOKED
+  BLOCKED
+  MAINTENANCE
+}
+
+model PricingRule {
+  id              String          @id @default(cuid())
+  venueId         String
+  venue           Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  name            String
+  type            PricingRuleType
+
+  conditions      Json
+  adjustmentType  AdjustmentType
+  adjustmentValue Int
+
+  priority        Int             @default(0)
+
+  isActive        Boolean         @default(true)
+  validFrom       DateTime?
+  validUntil      DateTime?
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([venueId, isActive])
+}
+
+enum PricingRuleType {
+  TIME_BASED
+  DAY_BASED
+  ADVANCE_BOOKING
+  BOOKING_TYPE
+  PROMOTIONAL
+  USER_BASED
+}
+
+enum AdjustmentType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Closure {
+  id               String        @id @default(cuid())
+  venueId          String
+  venue            Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pitchId          String?
+  pitch            Pitch?        @relation(fields: [pitchId], references: [id])
+
+  reason           ClosureReason
+  description      String?
+
+  startDate        DateTime
+  endDate          DateTime
+
+  affectedBookingsNotified Boolean @default(false)
+
+  createdAt        DateTime      @default(now())
+  createdBy        String
+}
+
+enum ClosureReason {
+  MAINTENANCE
+  WEATHER
+  PRIVATE_EVENT
+  HOLIDAY
+  OTHER
+}
+
+model VenueStaff {
+  id        String         @id @default(cuid())
+  venueId   String
+  venue     Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role      VenueStaffRole
+  isActive  Boolean        @default(true)
+
+  createdAt DateTime       @default(now())
+
+  @@unique([venueId, userId])
+}
+
+enum VenueStaffRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+model Issue {
+  id           String        @id @default(cuid())
+  venueId      String
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pitchId      String?
+  pitch        Pitch?        @relation(fields: [pitchId], references: [id])
+  bookingId    String?
+  booking      Booking?      @relation(fields: [bookingId], references: [id])
+
+  reportedById String
+  reportedBy   User          @relation("IssueReporter", fields: [reportedById], references: [id])
+
+  category     IssueCategory
+  severity     IssueSeverity
+  description  String
+  photos       String[]
+
+  status       IssueStatus   @default(OPEN)
+  resolution   String?
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([venueId, status])
+}
+
+enum IssueCategory {
+  EQUIPMENT
+  SURFACE
+  LIGHTING
+  FACILITIES
+  SAFETY
+  CLEANLINESS
+  OTHER
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ============================================
+// BOOKING DOMAIN
+// ============================================
+
+model Booking {
+  id              String        @id @default(cuid())
+  reference       String        @unique
+
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  venueId         String
+  venue           Venue         @relation(fields: [venueId], references: [id])
+  pitchId         String
+  pitch           Pitch         @relation(fields: [pitchId], references: [id])
+  slotId          String        @unique
+  slot            AvailabilitySlot @relation(fields: [slotId], references: [id])
+
+  name            String?
+  date            DateTime      @db.Date
+  startTime       DateTime      @db.Time(0)
+  endTime         DateTime      @db.Time(0)
+
+  expectedPlayers Int           @default(10)
+
+  basePrice       Int
+  finalPrice      Int
+  creditsApplied  Int           @default(0)
+  promoCode       String?
+  promoDiscount   Int           @default(0)
+
+  paymentType     PaymentType
+  depositAmount   Int?
+  depositPaid     Boolean       @default(false)
+  fullAmountPaid  Boolean       @default(false)
+
+  isSplitPay      Boolean       @default(false)
+  splitPayDeadline DateTime?
+  autoChargeOnDeadline Boolean  @default(false)
+
+  status          BookingStatus @default(PENDING)
+  checkedInAt     DateTime?
+  checkedInBy     String?
+
+  qrToken         String        @unique @default(cuid())
+
+  cancelledAt     DateTime?
+  cancellationReason String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  participants    BookingParticipant[]
+  payments        Payment[]
+  refunds         Refund[]
+  issues          Issue[]
+  fixture         Fixture?
+
+  @@index([userId, status])
+  @@index([venueId, date])
+  @@index([reference])
+  @@index([qrToken])
+}
+
+enum PaymentType {
+  FULL
+  DEPOSIT
+  SPLIT_PAY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  SPLIT_PENDING
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model BookingHold {
+  id        String           @id @default(cuid())
+  slotId    String           @unique
+  slot      AvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  userId    String
+
+  expiresAt DateTime
+
+  createdAt DateTime         @default(now())
+
+  @@index([expiresAt])
+}
+
+model BookingParticipant {
+  id           String                   @id @default(cuid())
+  bookingId    String
+  booking      Booking                  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  userId       String?
+  user         User?                    @relation(fields: [userId], references: [id])
+  email        String?
+  phone        String?
+  name         String?
+
+  shareAmount  Int
+  paymentStatus ParticipantPaymentStatus @default(PENDING)
+  paidAt       DateTime?
+  paymentId    String?
+
+  inviteToken  String                   @unique @default(cuid())
+  invitedAt    DateTime                 @default(now())
+  reminderSentAt DateTime?
+
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([bookingId])
+  @@index([inviteToken])
+}
+
+enum ParticipantPaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  WAIVED
+}
+
+model Payment {
+  id                    String                 @id @default(cuid())
+  bookingId             String
+  booking               Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  stripePaymentIntentId String                 @unique
+  stripeChargeId        String?
+
+  amount                Int
+  currency              String                 @default("GBP")
+  status                PaymentStatus
+
+  type                  PaymentTransactionType
+  participantId         String?
+
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([bookingId])
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentTransactionType {
+  FULL_PAYMENT
+  DEPOSIT
+  REMAINING_BALANCE
+  SPLIT_PAY_SHARE
+  AUTO_CHARGE
+}
+
+model Refund {
+  id             String       @id @default(cuid())
+  bookingId      String
+  booking        Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  paymentId      String
+
+  stripeRefundId String?      @unique
+
+  amount         Int
+  type           RefundType
+  reason         String?
+
+  status         RefundStatus @default(PENDING)
+  processedAt    DateTime?
+
+  createdAt      DateTime     @default(now())
+
+  @@index([bookingId])
+}
+
+enum RefundType {
+  FULL
+  PARTIAL
+  CREDIT_CONVERSION
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model CreditWallet {
+  id        String              @id @default(cuid())
+  userId    String              @unique
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance   Int                 @default(0)
+
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  transactions CreditTransaction[]
+}
+
+model CreditTransaction {
+  id          String                @id @default(cuid())
+  walletId    String
+  wallet      CreditWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  type        CreditTransactionType
+  amount      Int
+  balance     Int
+
+  bookingId   String?
+  refundId    String?
+  description String
+
+  expiresAt   DateTime?
+
+  createdAt   DateTime              @default(now())
+
+  @@index([walletId])
+  @@index([expiresAt])
+}
+
+enum CreditTransactionType {
+  CANCELLATION_CREDIT
+  REFUND_TO_CREDIT
+  PROMOTIONAL_CREDIT
+  BOOKING_DEBIT
+  EXPIRED
+  ADMIN_ADJUSTMENT
+}
+
+model WaitlistEntry {
+  id        String           @id @default(cuid())
+  slotId    String
+  slot      AvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  position  Int
+  notifiedAt DateTime?
+  expiresAt DateTime?
+  claimedAt DateTime?
+
+  createdAt DateTime         @default(now())
+
+  @@unique([slotId, userId])
+  @@index([slotId, position])
+}
+
+// ============================================
+// TEAM DOMAIN
+// ============================================
+
+model Team {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+
+  description     String?
+  logo            String?
+  primaryColour   String?
+  secondaryColour String?
+
+  sport           Sport        @default(FIVE_A_SIDE)
+  homeVenueId     String?
+
+  contactEmail    String?
+
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  members         TeamMember[]
+  invites         TeamInvite[]
+  availabilityResponses AvailabilityResponse[]
+  benchList       BenchListEntry[]
+
+  leagueTeams     LeagueTeam[]
+  homeFixtures    Fixture[]    @relation("HomeTeam")
+  awayFixtures    Fixture[]    @relation("AwayTeam")
+
+  playerFinderPosts PlayerFinderPost[]
+
+  @@index([slug])
+}
+
+enum Sport {
+  FIVE_A_SIDE
+  SIX_A_SIDE
+  SEVEN_A_SIDE
+  ELEVEN_A_SIDE
+}
+
+model TeamMember {
+  id           String         @id @default(cuid())
+  teamId       String
+  team         Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role         TeamMemberRole @default(PLAYER)
+  jerseyNumber Int?
+  position     String?
+
+  joinedAt     DateTime       @default(now())
+  leftAt       DateTime?
+  isActive     Boolean        @default(true)
+
+  @@unique([teamId, userId])
+  @@index([userId, isActive])
+}
+
+enum TeamMemberRole {
+  CAPTAIN
+  VICE_CAPTAIN
+  PLAYER
+}
+
+model TeamInvite {
+  id             String       @id @default(cuid())
+  teamId         String
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  senderId       String
+  sender         User         @relation("InviteSender", fields: [senderId], references: [id])
+
+  recipientId    String?
+  recipient      User?        @relation("InviteRecipient", fields: [recipientId], references: [id])
+  recipientEmail String?
+  recipientPhone String?
+
+  token          String       @unique @default(cuid())
+  status         InviteStatus @default(PENDING)
+
+  expiresAt      DateTime
+  respondedAt    DateTime?
+
+  createdAt      DateTime     @default(now())
+
+  @@index([token])
+  @@index([teamId, status])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+model AvailabilityResponse {
+  id        String             @id @default(cuid())
+  teamId    String
+  team      Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fixtureId String
+  fixture   Fixture            @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
+  status    AvailabilityStatus
+  note      String?
+
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@unique([teamId, userId, fixtureId])
+}
+
+enum AvailabilityStatus {
+  IN
+  MAYBE
+  OUT
+  NO_RESPONSE
+}
+
+model BenchListEntry {
+  id           String    @id @default(cuid())
+  teamId       String
+  team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId       String?
+
+  name         String
+  email        String?
+  phone        String?
+
+  notes        String?
+  lastPlayedAt DateTime?
+
+  createdAt    DateTime  @default(now())
+
+  @@index([teamId])
+}
+
+model PlayerFinderPost {
+  id           String             @id @default(cuid())
+
+  userId       String?
+  user         User?              @relation(fields: [userId], references: [id])
+  teamId       String?
+  team         Team?              @relation(fields: [teamId], references: [id])
+
+  bookingId    String?
+
+  title        String
+  description  String?
+
+  venueId      String?
+  location     String?
+  date         DateTime
+  time         DateTime           @db.Time(0)
+
+  spotsNeeded  Int
+  spotsFilled  Int                @default(0)
+  pricePerPerson Int?
+  skillLevel   SkillLevel?
+
+  status       PlayerFinderStatus @default(OPEN)
+
+  createdAt    DateTime           @default(now())
+  expiresAt    DateTime
+
+  acceptances  PlayerFinderAcceptance[]
+
+  @@index([date, status])
+  @@index([location])
+}
+
+enum PlayerFinderStatus {
+  OPEN
+  FILLED
+  CANCELLED
+  EXPIRED
+}
+
+model PlayerFinderAcceptance {
+  id          String           @id @default(cuid())
+  postId      String
+  post        PlayerFinderPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status      AcceptanceStatus @default(PENDING)
+  paymentId   String?
+
+  createdAt   DateTime         @default(now())
+  confirmedAt DateTime?
+
+  @@unique([postId, userId])
+}
+
+enum AcceptanceStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+// ============================================
+// LEAGUE DOMAIN
+// ============================================
+
+model League {
+  id                    String       @id @default(cuid())
+  name                  String
+  slug                  String       @unique
+  description           String?
+
+  organiserId           String
+  organiser             User         @relation("LeagueOrganiser", fields: [organiserId], references: [id])
+
+  venueId               String?
+  venue                 Venue?       @relation(fields: [venueId], references: [id])
+
+  sport                 Sport        @default(FIVE_A_SIDE)
+  format                LeagueFormat @default(ROUND_ROBIN)
+
+  matchDurationMins     Int          @default(50)
+  pointsForWin          Int          @default(3)
+  pointsForDraw         Int          @default(1)
+  pointsForLoss         Int          @default(0)
+  tiebreakers           String[]
+
+  minTeams              Int          @default(4)
+  maxTeams              Int          @default(12)
+  entryFee              Int?
+  registrationDeadline  DateTime?
+
+  yellowsForBan         Int          @default(5)
+  redCardBanGames       Int          @default(1)
+
+  preferredDays         Int[]
+  kickoffWindowStart    String?
+  kickoffWindowEnd      String?
+
+  status                LeagueStatus @default(DRAFT)
+
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  seasons               Season[]
+  teams                 LeagueTeam[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+enum LeagueFormat {
+  ROUND_ROBIN
+  DOUBLE_ROUND_ROBIN
+  KNOCKOUT
+  GROUP_AND_KNOCKOUT
+}
+
+enum LeagueStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Season {
+  id        String       @id @default(cuid())
+  leagueId  String
+  league    League       @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  name      String
+  startDate DateTime
+  endDate   DateTime?
+
+  status    SeasonStatus @default(UPCOMING)
+
+  createdAt DateTime     @default(now())
+
+  divisions Division[]
+  fixtures  Fixture[]
+
+  @@index([leagueId])
+}
+
+enum SeasonStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Division {
+  id       String       @id @default(cuid())
+  seasonId String
+  season   Season       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  name     String
+  tier     Int          @default(1)
+
+  teams    LeagueTeam[]
+  fixtures Fixture[]
+
+  @@index([seasonId])
+}
+
+model LeagueTeam {
+  id               String    @id @default(cuid())
+  leagueId         String
+  league           League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  teamId           String
+  team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  divisionId       String?
+  division         Division? @relation(fields: [divisionId], references: [id])
+
+  registeredAt     DateTime  @default(now())
+  registrationPaid Boolean   @default(false)
+
+  played           Int       @default(0)
+  won              Int       @default(0)
+  drawn            Int       @default(0)
+  lost             Int       @default(0)
+  goalsFor         Int       @default(0)
+  goalsAgainst     Int       @default(0)
+  points           Int       @default(0)
+
+  cannotPlayAfter  String?
+  blackoutDates    DateTime[]
+
+  @@unique([leagueId, teamId])
+  @@index([leagueId, points])
+}
+
+model Fixture {
+  id            String        @id @default(cuid())
+  seasonId      String
+  season        Season        @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  divisionId    String?
+  division      Division?     @relation(fields: [divisionId], references: [id])
+
+  homeTeamId    String
+  homeTeam      Team          @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId    String
+  awayTeam      Team          @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  scheduledDate DateTime
+  scheduledTime DateTime      @db.Time(0)
+  venueId       String?
+  pitchId       String?
+
+  bookingId     String?       @unique
+  booking       Booking?      @relation(fields: [bookingId], references: [id])
+
+  matchWeek     Int?
+
+  status        FixtureStatus @default(SCHEDULED)
+
+  postponedAt   DateTime?
+  postponementReason String?
+  rescheduledTo DateTime?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  result        Result?
+  availabilityResponses AvailabilityResponse[]
+
+  @@index([seasonId, scheduledDate])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+}
+
+enum FixtureStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  POSTPONED
+  CANCELLED
+  VOID
+}
+
+model Result {
+  id            String       @id @default(cuid())
+  fixtureId     String       @unique
+  fixture       Fixture      @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
+  homeScore     Int
+  awayScore     Int
+
+  submittedById String
+  submittedBy   User         @relation("ResultSubmitter", fields: [submittedById], references: [id])
+  submittedAt   DateTime     @default(now())
+
+  status        ResultStatus @default(PENDING_CONFIRMATION)
+  confirmedAt   DateTime?
+  confirmedById String?
+
+  goalScorers   Json?
+  notes         String?
+
+  dispute       Dispute?
+  disciplineEvents DisciplineEvent[]
+}
+
+enum ResultStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  DISPUTED
+  ADMIN_RESOLVED
+}
+
+model Dispute {
+  id               String        @id @default(cuid())
+  resultId         String        @unique
+  result           Result        @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  raisedById       String
+  raisedBy         User          @relation("DisputeRaiser", fields: [raisedById], references: [id])
+  raisedAt         DateTime      @default(now())
+
+  reason           DisputeReason
+  claimedHomeScore Int?
+  claimedAwayScore Int?
+  description      String
+
+  evidence         DisputeEvidence[]
+
+  status           DisputeStatus @default(OPEN)
+  resolution       String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  finalHomeScore   Int?
+  finalAwayScore   Int?
+}
+
+enum DisputeReason {
+  WRONG_SCORE
+  WRONG_CARDS
+  MATCH_DID_NOT_HAPPEN
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+model DisputeEvidence {
+  id           String       @id @default(cuid())
+  disputeId    String
+  dispute      Dispute      @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  type         EvidenceType
+  url          String
+  description  String?
+
+  uploadedById String
+  uploadedAt   DateTime     @default(now())
+}
+
+enum EvidenceType {
+  PHOTO
+  SCREENSHOT
+  VIDEO
+  DOCUMENT
+}
+
+model DisciplineEvent {
+  id        String         @id @default(cuid())
+  resultId  String?
+  result    Result?        @relation(fields: [resultId], references: [id])
+
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  teamId    String
+
+  type      DisciplineType
+  reason    String?
+  minute    Int?
+
+  banId     String?        @unique
+  ban       Ban?
+  fineAmount Int?
+  finePaid  Boolean        @default(false)
+
+  createdAt DateTime       @default(now())
+
+  @@index([userId])
+}
+
+enum DisciplineType {
+  YELLOW_CARD
+  RED_CARD
+  FINE
+  WARNING
+}
+
+model Ban {
+  id                  String          @id @default(cuid())
+  disciplineEventId   String          @unique
+  disciplineEvent     DisciplineEvent @relation(fields: [disciplineEventId], references: [id], onDelete: Cascade)
+
+  userId              String
+  teamId              String
+
+  type                BanType
+  gamesRemaining      Int
+  reason              String
+
+  appealDeadline      DateTime?
+  appealedAt          DateTime?
+  appealOutcome       String?
+
+  isActive            Boolean         @default(true)
+
+  createdAt           DateTime        @default(now())
+  expiresAt           DateTime?
+}
+
+enum BanType {
+  AUTO_YELLOWS
+  RED_CARD
+  EXTENDED
+  MISCONDUCT
+}
+
+// ============================================
+// COMMUNICATION DOMAIN
+// ============================================
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  title       String
+  body        String
+  data        Json?
+
+  entityType  String?
+  entityId    String?
+  actionUrl   String?
+
+  read        Boolean          @default(false)
+  readAt      DateTime?
+
+  emailSent   Boolean          @default(false)
+  emailSentAt DateTime?
+  pushSent    Boolean          @default(false)
+  pushSentAt  DateTime?
+
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_REMINDER
+  BOOKING_CANCELLED
+  SPLIT_PAY_INVITE
+  SPLIT_PAY_REMINDER
+  SPLIT_PAY_PAID
+  SPLIT_PAY_DEADLINE
+  WAITLIST_AVAILABLE
+  TEAM_INVITE
+  TEAM_JOINED
+  AVAILABILITY_REQUEST
+  PLAYER_FINDER_INTEREST
+  FIXTURE_SCHEDULED
+  FIXTURE_REMINDER
+  RESULT_SUBMITTED
+  RESULT_CONFIRM_REQUEST
+  DISPUTE_RAISED
+  DISPUTE_RESOLVED
+  DISCIPLINE_EVENT
+  BAN_ISSUED
+  ISSUE_REPORTED
+  CLOSURE_AFFECTED
+  WELCOME
+  CREDIT_RECEIVED
+  CREDIT_EXPIRING
+}
+
+model ShareLink {
+  id            String        @id @default(cuid())
+  type          ShareLinkType
+
+  bookingId     String?
+  fixtureId     String?
+  teamId        String?
+
+  token         String        @unique @default(cuid())
+
+  platform      SharePlatform
+  previewTitle  String
+  previewBody   String
+
+  clickCount    Int           @default(0)
+  lastClickedAt DateTime?
+
+  createdAt     DateTime      @default(now())
+  expiresAt     DateTime?
+
+  @@index([token])
+}
+
+enum ShareLinkType {
+  BOOKING
+  SPLIT_PAY_INVITE
+  FIXTURE
+  TEAM_INVITE
+  PLAYER_FINDER
+}
+
+enum SharePlatform {
+  WHATSAPP
+  EMAIL
+  COPY_LINK
+  TWITTER
+  FACEBOOK
+}
+
+model CalendarEventToken {
+  id           String       @id @default(cuid())
+  token        String       @unique @default(cuid())
+
+  bookingId    String?
+  fixtureId    String?
+
+  calendarType CalendarType
+
+  title        String
+  description  String?
+  location     String?
+  startTime    DateTime
+  endTime      DateTime
+
+  createdAt    DateTime     @default(now())
+
+  @@index([token])
+}
+
+enum CalendarType {
+  ICS_DOWNLOAD
+  GOOGLE_CALENDAR
+  APPLE_CALENDAR
+  OUTLOOK
+}
